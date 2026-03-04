@@ -2731,10 +2731,63 @@ onValue(DB_REF, (snapshot) => {
     if (!db.rewards) db.rewards = [];
     if (!db.kids) db.kids = [];
     if (!db.history) db.history = [];
-    // Keep localStorage in sync as offline fallback
-    try { localStorage.setItem('starChart_v3', JSON.stringify(db)); } catch(e){}
   }
+
+  // Seed defaults if lists are empty (covers fresh Firebase db)
+  let needsSave = false;
+  if (!db.tasks.length) {
+    db.tasks = [
+      {id:uid(),name:'Cleaned room',emoji:'🧹',stars:2},
+      {id:uid(),name:'Did homework',emoji:'📚',stars:3},
+      {id:uid(),name:'Was kind',emoji:'😊',stars:1},
+      {id:uid(),name:'Ate veggies',emoji:'🥦',stars:1},
+      {id:uid(),name:'Brushed teeth',emoji:'🦷',stars:1},
+      {id:uid(),name:'Helped out',emoji:'🤝',stars:2},
+      {id:uid(),name:'Read a book',emoji:'📖',stars:2},
+      {id:uid(),name:'Got ready fast',emoji:'💪',stars:2},
+    ]; needsSave = true;
+  }
+  if (!db.rewards.length) {
+    db.rewards = [
+      {id:uid(),name:'Extra screen time',emoji:'📱',cost:10},
+      {id:uid(),name:'Choose dinner',emoji:'🍕',cost:15},
+      {id:uid(),name:'Movie night',emoji:'🎬',cost:20},
+      {id:uid(),name:'Small treat',emoji:'🍦',cost:8},
+      {id:uid(),name:'Small toy',emoji:'🎁',cost:50},
+      {id:uid(),name:'Day trip',emoji:'🛝',cost:100},
+    ]; needsSave = true;
+  }
+  if (!db.morningChores.length) {
+    db.morningChores = [
+      {id:uid(),name:'Brush teeth',emoji:'🦷'},
+      {id:uid(),name:'Turn off bedroom light',emoji:'💡'},
+      {id:uid(),name:'Open the blinds',emoji:'🌅'},
+      {id:uid(),name:'Get ready quickly',emoji:'⚡'},
+    ]; needsSave = true;
+  }
+  if (!db.nightChores.length) {
+    db.nightChores = [
+      {id:uid(),name:'Eat vitamin',emoji:'💊'},
+      {id:uid(),name:'Brush teeth',emoji:'🦷'},
+      {id:uid(),name:'Change to PJs',emoji:'😴'},
+      {id:uid(),name:'Be ready by 8pm',emoji:'🕗'},
+    ]; needsSave = true;
+  }
+  if (!db.behaviours.length) {
+    db.behaviours = [
+      {id:uid(),name:'Arguing / Back chat',emoji:'🗣️',stars:1},
+      {id:uid(),name:'Not listening',emoji:'🙉',stars:1},
+      {id:uid(),name:'Being mean to sibling',emoji:'😡',stars:2},
+      {id:uid(),name:'Tantrum',emoji:'😤',stars:2},
+      {id:uid(),name:'Lying',emoji:'🤥',stars:3},
+      {id:uid(),name:'Hitting / pushing',emoji:'👊',stars:3},
+    ]; needsSave = true;
+  }
+  if (needsSave) save();
+
   fbReady = true;
+  // Keep localStorage in sync as offline fallback
+  try { localStorage.setItem('starChart_v3', JSON.stringify(db)); } catch(e){}
   // Re-select active kid (may have changed on another device)
   if (!activeKidId || !db.kids.find(k => k.id === activeKidId)) {
     activeKidId = db.kids[0]?.id || null;
