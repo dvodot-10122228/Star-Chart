@@ -907,7 +907,26 @@ input:focus { border-color: var(--lavender-deep); }
   <div class="tmnt-figure" id="tmntFigure"></div>
 </div>
 
-<script>
+<script type="module">
+// ── FIREBASE ──────────────────────────────────────────────────────────────────
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAXRKqCtNMG07tcS3Y-AdasvzxCY3K8Ly0",
+  authDomain: "star-chart-27d82.firebaseapp.com",
+  databaseURL: "https://star-chart-27d82-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "star-chart-27d82",
+  storageBucket: "star-chart-27d82.firebasestorage.app",
+  messagingSenderId: "271492140646",
+  appId: "1:271492140646:web:ee70eeaade28a66ea327a7"
+};
+const fbApp = initializeApp(firebaseConfig);
+const fbDb = getDatabase(fbApp);
+const DB_REF = ref(fbDb, 'starChart');
+
+let fbReady = false;
+let saveTimeout = null;
 const BEHAVIOUR_EMOJIS = ['😤','🗣️','🙉','😡','👊','🤥','😠','🙄','😈','🤬','💢','😒','🚫','⚠️','🔥','😱','👿','🤯','😶','🥴'];
 const TASK_EMOJIS = ['📚','🧹','🛁','🍽️','🐾','🏃','😊','🤝','💤','🎨','🌱','💪','🧩','🎯','✏️','🚿','👕','🛏️','🥦','🧺','🦷','🧴','📖','🐕','🚲','🎵','🙏','🍱','♻️','🌸','⚽','🏊','🎭','🌿','🧠','🍎'];
 const REWARD_EMOJIS = ['🍦','🎮','🍕','🎬','🛝','🎁','🏖️','🍰','📱','🎠','🚀','🎉','🧸','🎊','🍿','🏆','🌈','🎪','🎟️','🛍️','🎭','🏄','🎡','🍔','🧁','🎀','🎲','🚗','🌴','🎗️'];
@@ -1646,7 +1665,15 @@ let selChoreEmoji = '🧹';
 let editingHistoryIdx = null;
 
 function uid() { return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
-function save() { try { localStorage.setItem('starChart_v3', JSON.stringify(db)); } catch(e){} }
+function save() {
+  // Also keep localStorage as offline fallback
+  try { localStorage.setItem('starChart_v3', JSON.stringify(db)); } catch(e){}
+  // Debounce Firebase writes to avoid hammering on rapid taps
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    set(DB_REF, db).catch(e => console.warn('Firebase save error:', e));
+  }, 400);
+}
 
 // ── IN-APP CONFIRM (replaces browser confirm() which breaks in modals/webviews) ──
 function appConfirm({ icon='⚠️', title='Are you sure?', msg='', okLabel='Remove', okStyle='background:var(--pink-soft);color:var(--pink-deep);border:1.5px solid var(--pink)' } = {}, onOk) {
@@ -2644,10 +2671,41 @@ function celebrate() {
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
+// Show loading state while Firebase connects
+document.getElementById('tmntFigure').innerHTML = TMNT_SVG;
+
+// Load from localStorage immediately so app is usable offline
 load();
 activeKidId = db.kids[0]?.id || null;
 renderAll();
-document.getElementById('tmntFigure').innerHTML = TMNT_SVG;
+
+// Then subscribe to Firebase — updates flow in whenever data changes
+onValue(DB_REF, (snapshot) => {
+  const data = snapshot.val();
+  if (data) {
+    db = data;
+    // Re-run migration checks in case fields are missing in old saved data
+    if (!db.morningChores) db.morningChores = [];
+    if (!db.nightChores) db.nightChores = [];
+    if (!db.choreLog) db.choreLog = {};
+    if (!db.behaviours) db.behaviours = [];
+    if (!db.tasks) db.tasks = [];
+    if (!db.rewards) db.rewards = [];
+    if (!db.kids) db.kids = [];
+    if (!db.history) db.history = [];
+    // Keep localStorage in sync as offline fallback
+    try { localStorage.setItem('starChart_v3', JSON.stringify(db)); } catch(e){}
+  }
+  fbReady = true;
+  // Re-select active kid (may have changed on another device)
+  if (!activeKidId || !db.kids.find(k => k.id === activeKidId)) {
+    activeKidId = db.kids[0]?.id || null;
+  }
+  renderAll();
+}, (error) => {
+  console.warn('Firebase connection error:', error);
+  // App still works offline via localStorage
+});
 </script>
 
 </body>
